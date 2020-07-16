@@ -4,3 +4,10 @@ doc/
 bin/Release/
 standalone-binaries-*/
 rop_mosaic.png
+x64
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+rp-win-x64.dir/
+.vs/
+*.sln
