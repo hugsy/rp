@@ -30,6 +30,9 @@
 #include <iomanip>
 #include <vector>
 #include <cstring>
+#include <array>
+#include <stdint.h>
+
 
 /* Information extracted from winnt.h ; a bit of template-kung-fu and here it goes ! */
 

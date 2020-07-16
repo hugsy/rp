@@ -24,6 +24,8 @@
 // #include "vld.h"
 #include "platform.h"
 
+#include <stdint.h>
+
 /*
 	If you don't want any colors if your shell, you can disable it in coloshell.hpp -- just comment the #define
 */
@@ -45,5 +47,10 @@
 #else
 #define VERSION VERSION_TM " (Release)"
 #endif
+
+enum class RpFindGadgetFlag : uint32_t
+{
+	RP_ARM_USE_THUMB_MODE = 1
+};
 
 #endif

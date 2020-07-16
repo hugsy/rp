@@ -21,79 +21,109 @@
 #include "coloshell.hpp"
 #include "program.hpp"
 #include "toolbox.hpp"
-#include "argtable3.h"
+//#include "argtable3.h"
+
+#include "cxxopts.hpp"
+
 
 #include <iostream>
 #include <exception>
 #include <cstdlib>
 #include <cstring>
 
+
+
 int main(int argc, char* argv[])
 {
-    struct arg_file *file     = arg_file0("f", "file", "<binary path>", "give binary path");
-    struct arg_int  *display  = arg_int0("i", "info", "<1,2,3>", "display information about the binary header");
-    struct arg_int  *rop      = arg_int0("r", "rop", "<positive int>", "find useful gadget for your future exploits, arg is the gadget maximum size in instructions");
-    struct arg_str  *raw      = arg_str0(nullptr, "raw", "<archi>", "find gadgets in a raw file, 'archi' must be in the following list: x86, x64, arm");
-    struct arg_lit  *unique   = arg_lit0(nullptr, "unique", "display only unique gadget");
-    struct arg_str  *shexa    = arg_str0(nullptr, "search-hexa", "<\\x90A\\x90>", "try to find hex values");
-    struct arg_str  *maxth    = arg_str0(nullptr, "max-thread", "<int>", "set the maximum number of threads that can be used (default: 2)");
-    struct arg_str  *badbytes = arg_str0(nullptr, "bad-bytes", "<\\x90A\\x90>", "the bytes you don't want to see in the gadgets' addresses");
-    struct arg_str  *sint     = arg_str0(nullptr, "search-int", "<int in hex>", "try to find a pointer on a specific integer value");
-    struct arg_lit  *help     = arg_lit0("h", "help", "print this help and exit");
-    struct arg_lit  *version  = arg_lit0("v", "version", "print version information and exit");
-    struct arg_lit  *colors   = arg_lit0(nullptr, "colors", "enable colors");
-    struct arg_lit  *thumb    = arg_lit0(nullptr, "thumb", "enable thumb mode when looking for ARM gadgets");
-	struct arg_str  *va       = arg_str0(nullptr, "va", "<0xdeadbeef>", "don't use the image base of the binary, but yours instead");
-    struct arg_end  *end      = arg_end(20);
-    void* argtable[] {file, display, rop, raw, unique, shexa, sint, help, version, colors, va, badbytes, thumb, maxth, end};
+    auto colors = true;
+    auto show_version = false;
+    auto show_help = false;
+    size_t n_max_thread = 2;
+    
 
-    if(arg_nullcheck(argtable) != 0)
-        RAISE_EXCEPTION("Cannot allocate long option structures");
+    cxxopts::Options options(argv[0], "rp++ allows you to find ROP gadgets in pe/elf/mach-o x86/x64/ARM binaries. NB: The original idea comes from (@jonathansalwan) and his 'ROPGadget' tool.\n");
+    options
+        .show_positional_help();
 
-    int nerrors = arg_parse(argc, argv, argtable);
-    if(nerrors > 0)
-    {
-        arg_print_errors(stdout, end, "rp++");
-        std::cout << "Try './rp++ --help' for more information." << std::endl;
-        return -1;
-    }
+    // todo: use groups?
 
-    if(colors->count > 0)
-        g_colors_desired = true;
+    options.add_options()
+
+        //
+        // modes
+        //
+        ("i,info", "display information about the binary header", cxxopts::value<int>())
+        ("r,rop", "find useful gadget for your future exploits, arg is the gadget maximum size in instructions", cxxopts::value<int>())
+
+
+        ("raw", "find gadgets in a raw file, 'archi' must be in the following list: x86, x64", cxxopts::value<std::string>())
+        ("max-thread", "set the maximum number of threads that can be used (default: 2)", cxxopts::value<size_t>(n_max_thread))
+        ("thumb", "enable thumb mode when looking for ARM gadgets", cxxopts::value<bool>()->default_value("false"))
+        ("image-base", "don't use the image base of the binary, but yours instead", cxxopts::value<std::string>(), "<0xdeadbeef>")
+
+
+        //
+        // search
+        //
+        ("search-int", "try to find a pointer on a specific integer value", cxxopts::value<std::string>(), "<int in hex>")
+        ("search-hexa", "try to find hex values", cxxopts::value<std::string>(), "<\\x90A\\x90>")
+
+
+        //
+        // filter
+        //
+        ("unique", "display only unique gadget", cxxopts::value<bool>()->default_value("false"))
+        ("bad-bytes", "the bytes you don't want to see in the gadgets' addresses", cxxopts::value<std::string>(), "<\\x90A\\x90>")
+
+
+        //
+        // misc
+        //
+        ("colors", "enable colors", cxxopts::value<bool>(colors))
+        ("h,help", "print this help and exit", cxxopts::value<bool>(show_help))
+        ("v,version", "print version information and exit", cxxopts::value<bool>(show_version))
+        ("d,debug", "Enable debugging")
+
+        ("binary_files", "binary path", cxxopts::value<std::vector<std::string>>())
+        ;
+
 
     try
     {
-        if(help->count > 0 || argc == 1)
-        {
-            w_yel_lf("DESCRIPTION:");
-            w_red("rp++");
-            std::cout << " allows you to find ROP gadgets in pe/elf/mach-o x86/x64/ARM binaries." << std::endl;
-            std::cout << "NB: The original idea comes from (@jonathansalwan) and his 'ROPGadget' tool." << std::endl << std::endl;
-            
-            w_yel_lf("USAGE:");
-            std::cout << "./rp++";
-            arg_print_syntax(stdout, argtable, "\n");
+        options.parse_positional({ "binary_files" });
+        auto args = options.parse(argc, argv);
 
-            std::cout << std::endl;
-            w_yel_lf("OPTIONS:");
-            arg_print_glossary(stdout, argtable, "  %-25s %s\n");
-        }
+        if (colors)
+            g_colors_desired = true;
 
-        if(version->count > 0)
+
+        if (show_version)
             std::cout << "You are currently using the version " << VERSION << " of rp++." << std::endl;
 
+        else if (args.count("binary_files") == 0)
+            show_help = true;
+
+        if(show_help)
+        {
+            std::cout << options.help({""}) << std::endl;
+            std::cout << std::endl;
+        }
+
         /* If we've asked the help or version option, we assume the program is terminated */
-        if(version->count > 0 || help->count > 0)
+        if(show_version || show_help)
             return 0;
 
-        if(file->count > 0)
+        if(args.count("binary_files"))
         {
-            std::string program_path(file->filename[0]);
+            auto positional_arguments = args["binary_files"].as<std::vector<std::string>>();
+            // todo : handle multiple files? 
+
+            std::string program_path{ positional_arguments.at(0) };
             CPU::E_CPU arch(CPU::CPU_UNKNOWN);
 
-            if(raw->count > 0)
+            if(args.count("raw"))
             {
-                const char* architecture = raw->sval[0];
+                const char* architecture = args["raw"].as<std::string>().c_str();
 
                 if(std::strcmp(architecture, "x86") == 0)
                     arch = CPU::CPU_x86;
@@ -107,56 +137,75 @@ int main(int argc, char* argv[])
             }
             
             Program p(program_path, arch);
-            
-            if(display->count > 0)
-            {
-                if(display->ival[0] < VERBOSE_LEVEL_1 || display->ival[0] > VERBOSE_LEVEL_3)
-                    display->ival[0] = VERBOSE_LEVEL_1;
 
-                p.display_information((VerbosityLevel)display->ival[0]);
+            {
+                auto level = args.count("debug");
+                VerbosityLevel verbose_level;
+
+                switch (level)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                        verbose_level = (VerbosityLevel)level;
+                        break;
+
+                    default: 
+                        verbose_level = VERBOSE_LEVEL_1;
+                        break;
+                }
+
+                if (level)
+                    p.display_information((VerbosityLevel)verbose_level);
             }
 
-            if(rop->count > 0)
-            {
-                if(rop->ival[0] < 0)
-                    rop->ival[0] = 0;
 
-                if(rop->ival[0] > MAXIMUM_INSTRUCTION_PER_GADGET)
+            if(args.count("rop"))
+            {
+                auto rop = args["rop"].as<int>();
+
+                if(rop < 0)
+                    rop = 0;
+
+                if(rop > MAXIMUM_INSTRUCTION_PER_GADGET)
                     RAISE_EXCEPTION("You specified a maximum number of instruction too important for the --rop option");
 
 				uint32_t options = 0;
-				if(thumb->count > 0)
-					options = 1;
+				if(args.count("thumb"))
+					options |= (uint32_t)RpFindGadgetFlag::RP_ARM_USE_THUMB_MODE;
 
-                size_t n_max_thread = 2;
-                if(maxth->count > 0)
-                    n_max_thread = atoi(maxth->sval[0]);
-                
+               
                 if(n_max_thread == 0)
                     n_max_thread = 2;
 
+
                 std::cout << std::endl << "Wait a few seconds, rp++ is looking for gadgets (" << n_max_thread << " threads max).." << std::endl;
                 std::multiset<std::shared_ptr<Gadget>> all_gadgets;
-                p.find_gadgets(rop->ival[0], all_gadgets, options, n_max_thread);
+                p.find_gadgets(rop, all_gadgets, options, n_max_thread);
 
                 // Here we set the base beeing 0 if we want to have absolute virtual memory address displayed
                 uint64_t base = 0;
                 uint64_t new_base = 0;
-                if(va->count > 0)
+                if( args.count("image-base"))
                 {
                     // If not we will substract the base address to every gadget to keep only offsets
                     base = p.get_image_base_address();
                     // And we will use your new base address
-                    new_base = strtoul(va->sval[0], nullptr, 16); //XXX: Only valid with VS2k13 strtoull(rva->sval[0], NULL, 16); 
+                    auto va= args["image-base"].as<std::string>();
+                    new_base = strtoul(va.c_str(), nullptr, 16); 
                 }
 
                 std::cout << "A total of " << all_gadgets.size() << " gadgets found." << std::endl;
                 std::vector<uint8_t> badbyte_list;
-                if(badbytes->count > 0)
-                    badbyte_list = string_to_hex(badbytes->sval[0]);
+
+                if (args.count("bad-bytes"))
+                {
+                    auto badbytes = args["bad-bytes"].as<std::string>();
+                    badbyte_list = string_to_hex(badbytes.c_str());
+                }
 
                 uint64_t nb_gadgets_filtered = 0;
-                if(unique->count > 0)
+                if(args.count("unique"))
                 {
                     std::set<std::shared_ptr<Gadget>, Gadget::Sort> unique_gadgets;
                     only_unique_gadgets(all_gadgets, unique_gadgets);
@@ -173,19 +222,21 @@ int main(int argc, char* argv[])
                         display_gadget_lf(gadget->get_first_absolute_address(), gadget);
                 }
 
-                if(badbytes->count > 0)
+                if(args.count("badbytes"))
                     std::cout << std::endl << nb_gadgets_filtered << " gadgets have been filtered because of your bad-bytes." << std::endl;
             }
 
-            if(shexa->count > 0)
+            if(args.count("search-hexa"))
             {
-                std::vector<uint8_t> hex_values = string_to_hex(shexa->sval[0]);
+                auto shexa = args["search-hexa"].as<std::string>();
+                std::vector<uint8_t> hex_values = string_to_hex(shexa.c_str());
                 p.search_and_display(hex_values.data(), (uint32_t)hex_values.size());
             }
             
-            if(sint->count > 0)
+            if(args.count("search-int"))
             {
-                uint32_t val = std::strtoul(sint->sval[0], nullptr, 16);
+                auto sint = args["search-int"].as<std::string>();
+                uint32_t val = std::strtoul(sint.c_str(), nullptr, 16);
                 p.search_and_display((const uint8_t*)&val, sizeof(uint32_t));
             }
         }
@@ -197,6 +248,5 @@ int main(int argc, char* argv[])
         disable_color();
     }
 
-    arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
     return 0;
 }

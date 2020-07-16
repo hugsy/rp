@@ -21,8 +21,8 @@
 #define INSTRUCTION_HPP
 
 #include <string>
-#include <boost/flyweight.hpp>
 #include <vector>
+//#include <boost/flyweight.hpp>
 
 /*! \class Instruction
  *
@@ -62,7 +62,7 @@ class Instruction
 
         std::vector<uint8_t> bytes;
 
-        boost::flyweight<std::string> m_disass; /*!< the disassembly of the instruction */
+        std::string m_disass; /*!< the disassembly of the instruction */
         
         uint32_t m_size; /*!< the size of the instruction */
 };

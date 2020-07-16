@@ -65,7 +65,7 @@ endif()
 include_directories("./src/inc/")
 include_directories("./lib/beaengine/include/")
 include_directories("./lib/capstone/include/")
-include_directories("./lib/argtable3/")
+# include_directories("./lib/argtable3/")
 
 file(
     GLOB_RECURSE
@@ -89,24 +89,16 @@ file(
 
 # Filters for VS solution
 source_group("capstone" FILES ${capstone_pp_files_arch} ${capstone_pp_files})
-source_group("argtable3" FILES "./lib/argtable3/argtable3.c" "./lib/argtable3/argtable3.h")
+# source_group("argtable3" FILES "./lib/argtable3/argtable3.c" "./lib/argtable3/argtable3.h")
 source_group("beaengine" FILES "./lib/beaengine/src/BeaEngine.c")
 
-set(Boost_USE_STATIC_LIBS ON) # only find static libs
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost)
-if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-    add_executable(
+
+add_executable(
         ${RP_NAME}
         ${ropgadget_pp_files}
         ${capstone_pp_files_arch} ${capstone_pp_files}
         "./lib/beaengine/src/BeaEngine.c"
-        "./lib/argtable3/argtable3.c" "./lib/argtable3/argtable3.h"
-    )
+#         "./lib/argtable3/argtable3.c" "./lib/argtable3/argtable3.h"
+)
 
-  target_link_libraries(${RP_NAME} ${Boost_LIBRARIES})
-else()
-    message(SEND_ERROR "find_package could not find boost159 - please install it!")
-endif()
+target_link_libraries(${RP_NAME})

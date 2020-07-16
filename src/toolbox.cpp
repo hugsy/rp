@@ -23,6 +23,8 @@
 #include <cstring>
 #include <cstdlib>
 #include <vector>
+#include <algorithm>
+
 
 std::string verbosity_to_string(const VerbosityLevel lvl)
 {

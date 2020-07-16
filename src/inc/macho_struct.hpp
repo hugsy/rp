@@ -27,6 +27,8 @@
 
 #include <cstring>
 #include <vector>
+#include <array>
+#include <stdint.h>
 
 #ifdef WINDOWS
 #pragma pack(push)
